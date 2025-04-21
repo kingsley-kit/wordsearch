@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word Search Game</title>
+  <style>
+    body { 
+      font-family: sans-serif; 
+      text-align: center; 
+      background: #E0F3F8;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      min-height: 100vh;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+    }
+    .game-container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+      align-items: flex-start;
+      padding: 20px;
+      flex: 1;
+      position: relative;
+    }
+    #game { 
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-width: 300px;
+      max-width: max-content;
+      position: relative;
+      z-index: 1;
+    }
+    .grid { 
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      grid-template-rows: repeat(15, 1fr);
+      gap: 2px;
+      background: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      margin: 0 auto;
+      width: 100%;
+      aspect-ratio: 12/15;
+    }
+    .cell {
+      width: 100%;
+      aspect-ratio: 1;
+      background: transparent;
+      border: none;
+      line-height: 40px;
+      font-weight: bold;
+      font-size: clamp(14px, 3vw, 18px);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 1;
+    }
+    .cell.selected {
+      z-index: 3;
+    }
+    .cell::before {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      border-radius: 50%;
+      background: transparent;
+      transition: all 0.2s ease;
+      z-index: -1;
+    }
+    .cell:hover::before {
+      background: #f6cad193;
+    }
+    .grid.dragging .cell:hover::before {
+      background: transparent;
+    }
+    .cell.found::before {
+      background: #90ee90;
+    }
+    .selection-highlight {
+      position: absolute;
+      background: #ffb6c180;
+      border-radius: 999px;
+      z-index: 0;
+      pointer-events: none;
+      transition: all 0.15s ease;
+      transform-origin: center;
+    }
+    .permanent-highlight {
+      position: absolute;
+      background: rgba(144, 238, 144, 0.5);
+      border-radius: 999px;
+      z-index: 0;
+      pointer-events: none;
+    }
+    .word-found-highlight {
+      background: rgba(144, 238, 144, 0.5);
+    }
+    .sidebar {
+      width: 250px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      position: relative;
+      z-index: 2;
+      background: #E0F3F8;
+      padding: 10px;
+      border-radius: 10px;
+      margin-left: 10px;
+    }
+    .find-box, .timer-container, .controls-container {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+    .find-title, .controls-title {
+      font-size: 1.2em;
+      font-weight: bold;
+      color: white;
+      background: #0E3641;
+      padding: 12px;
+      margin: 0;
+      text-align: center;
+    }
+    .timer-container {
+      padding: 50px;
+      text-align: center;
+    }
+    .timer {
+      font-size: 3em;
+      font-weight: bold;
+      color: #333;
+    }
+    .best-time {
+      font-size: 0.9em;
+      color: #666;
+      margin-top: 4px;
+    }
+    .word-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      text-align: center;
+      padding: 12px;
+    }
+    .controls {
+      padding: 12px;
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+    .control-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: #E0F3F8;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      transition: all 0.2s ease;
+    }
+    .control-btn:hover {
+      background: #c5e5ef;
+    }
+    .word {
+      padding: 5px 0;
+      font-size: 16px;
+      color: #000;
+      font-weight: bold;
+      transition: all 0.3s;
+    }
+    .word:nth-child(1) { color: #000000; }
+    .word:nth-child(2) { color: #000000; }
+    .word:nth-child(3) { color: #000000; }
+    .word:nth-child(4) { color: #030303; }
+    .word:nth-child(5) { color: #000000; }
+    .word.found { 
+      text-decoration: line-through; 
+      color: #999;
+      font-weight: normal;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 0;
+      }
+      .game-container {
+        padding: 8px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      #game {
+        width: 100%;
+        max-width: none;
+        flex: 1;
+        display: flex;
+        align-items: center;
+      }
+      .grid {
+        width: 100%;
+        max-width: 100%;
+        padding: 8px;
+        gap: 1px;
+        aspect-ratio: 12/15;
+      }
+      .cell {
+        font-size: min(16px, 3vw);
+        line-height: 1;
+      }
+      .sidebar {
+        order: -1;
+        width: 100%;
+        flex-direction: column;
+        gap: 4px;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+      .bottom-controls {
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        width: 100%;
+      }
+      .timer-container {
+        padding: 30px 60px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+      }
+      .timer {
+        font-size: 2em;
+        line-height: 1.2;
+      }
+      .best-time {
+        font-size: 0.9em;
+        line-height: 1.2;
+      }
+      .controls-container {
+        flex: 1;
+        margin: 1;
+        width: calc(50% - 3px);
+        min-width: 1;
+      }
+      .find-title, .controls-title {
+        padding: 10px;
+        border-radius: 10px 10px 0 0;
+      }
+      .word-list {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+      }
+      .word {
+        padding: 4px 8px;
+        font-size: 14px;
+        flex: 0 0 auto;
+        min-width: min-content;
+      }
+      .controls {
+        padding: 15px 30px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 15px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .game-container {
+        padding: 0px;
+        gap: 0px;
+      }
+      .grid {
+        padding: 4px;
+      }
+      .sidebar {
+        gap: 2px;
+      }
+      .bottom-controls {
+        gap: 2px;
+      }
+      .timer-container {
+        padding: 12px 16px;
+      }
+      .timer {
+        font-size: 1.2em;
+      }
+      .best-time {
+        font-size: 0.85em;
+      }
+      .word-list {
+        gap: 8px;
+        padding: 8px;
+      }
+      .word {
+        padding: 3px 6px;
+        font-size: 13px;
+      }
+      .controls {
+        padding: 25px 40px;
+        gap: 6px;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .word-list {
+        gap: 6px;
+        padding: 6px 10px;
+        row-gap: 4px;
+      }
+      .word {
+        padding: 2px 4px;
+        font-size: 12px;
+      }
+    }
+
+    @media (orientation: landscape) and (max-height: 600px) {
+      .game-container {
+        flex-direction: row;
+        align-items: center;
+      }
+      .sidebar {
+        max-width: 200px;
+      }
+      .grid {
+        height: 80vh;
+        width: auto;
+        aspect-ratio: 12/15;
+      }
+      .word {
+        font-size: 0.8em;
+        padding: 2px 5px;
+      }
+      .find-title, .controls-title {
+        padding: 6px;
+      }
+      .word-list {
+        padding: 6px;
+      }
+      .controls {
+        padding: 6px;
+      }
+    }
+
+    .victory-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.9);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+      z-index: 1000;
+    }
+
+    .victory-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .victory-image {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+      margin-bottom: 30px;
+      opacity: 0;
+      transform: scale(0.8);
+      animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+    }
+
+    @keyframes popIn {
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .victory-text {
+      font-size: 2em;
+      color: #333;
+      margin-top: 20px;
+      opacity: 0;
+      transform: translateY(20px);
+      animation: fadeInUp 0.5s ease forwards 0.3s;
+    }
+
+    @keyframes fadeInUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="game-container">
+  <div id="game">
+    <div class="grid" id="grid"></div>
+  </div>
+  
+  <div class="sidebar">
+    <div class="find-box">
+      <div class="find-title">Find</div>
+      <div class="word-list" id="words"></div>
+    </div>
+    <div class="bottom-controls">
+      <div class="timer-container">
+        <div class="timer" id="timer">00:00</div>
+        <div class="best-time" id="bestTime">Best time: --:--</div>
+      </div>
+      <div class="controls-container">
+        <div class="controls-title">Controls</div>
+        <div class="controls">
+          <button class="control-btn" onclick="resetGame()">↺</button>
+          <button class="control-btn" onclick="toggleFullscreen()">⛶</button>
+          <button class="control-btn" onclick="showHelp()">ℹ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="victory-overlay" id="victoryOverlay">
+  <img src="assets/checkmark.png" alt="Victory checkmark" class="victory-image">
+  <div class="victory-text">All words found!</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script>
+const words = ["GAMETIZE", "QUIZ", "POINTS", "TILE", "PLAYER"];
+const gridSize = 15;
+const gridWidth = 12;
+const gridElement = document.getElementById("grid");
+const wordsElement = document.getElementById("words");
+const timerElement = document.getElementById("timer");
+const bestTimeElement = document.getElementById("bestTime");
+const grid = Array.from({ length: gridSize }, () => Array(gridWidth).fill(''));
+const directions = [
+  [0,1],   // right
+  [1,0],   // down
+  [0,-1],  // left
+  [-1,0],  // up
+  [1,1],   // down-right
+  [1,-1],  // down-left
+  [-1,1],  // up-right
+  [-1,-1]  // up-left
+];
+
+let startTime = null;
+let timerInterval = null;
+let bestTime = localStorage.getItem('bestTime') || null;
+let foundWords = new Map(); // Store found word highlights
+
+function updateTimer() {
+  if (!startTime) return;
+  
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+  const seconds = (elapsed % 60).toString().padStart(2, '0');
+  timerElement.textContent = `${minutes}:${seconds}`;
+}
+
+function startTimer() {
+  if (startTime) return;
+  startTime = Date.now();
+  timerInterval = setInterval(updateTimer, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  const finalTime = Date.now() - startTime;
+  
+  if (!bestTime || finalTime < bestTime) {
+    bestTime = finalTime;
+    localStorage.setItem('bestTime', bestTime);
+    updateBestTime();
+  }
+}
+
+function updateBestTime() {
+  if (!bestTime) {
+    bestTimeElement.textContent = 'Best time: --:--';
+    return;
+  }
+  
+  const minutes = Math.floor(bestTime / 60000).toString().padStart(2, '0');
+  const seconds = Math.floor((bestTime % 60000) / 1000).toString().padStart(2, '0');
+  bestTimeElement.textContent = `Best time: ${minutes}:${seconds}`;
+}
+
+// Fill grid with words
+function placeWords() {
+  words.forEach(word => {
+    let placed = false;
+    while (!placed) {
+      const dir = directions[Math.floor(Math.random() * directions.length)];
+      const row = Math.floor(Math.random() * gridSize);
+      const col = Math.floor(Math.random() * gridWidth);
+      let fit = true;
+      
+      for (let i = 0; i < word.length; i++) {
+        const r = row + dir[0]*i;
+        const c = col + dir[1]*i;
+        if (r < 0 || r >= gridSize || c < 0 || c >= gridWidth || (grid[r][c] && grid[r][c] !== word[i])) {
+          fit = false;
+          break;
+        }
+      }
+      
+      if (fit) {
+        for (let i = 0; i < word.length; i++) {
+          const r = row + dir[0]*i;
+          const c = col + dir[1]*i;
+          grid[r][c] = word[i];
+        }
+        placed = true;
+      }
+    }
+  });
+}
+
+function fillRandom() {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridWidth; c++) {
+      if (!grid[r][c]) grid[r][c] = alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+  }
+}
+
+function renderGrid() {
+  gridElement.innerHTML = '';
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridWidth; c++) {
+      const cell = document.createElement("div");
+      cell.classList.add("cell");
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      cell.textContent = grid[r][c];
+      gridElement.appendChild(cell);
+    }
+  }
+
+  wordsElement.innerHTML = words.map(w => `<div class="word" id="word-${w}">${w}</div>`).join('');
+  updateBestTime();
+}
+
+let isDragging = false;
+let selection = [];
+let lastCell = null;
+let selectionHighlight = null;
+
+function getCellFromEvent(e) {
+  const cell = e.target.closest('.cell');
+  if (!cell) return null;
+  return cell;
+}
+
+function getDirection(startCell, endCell) {
+  const startRow = parseInt(startCell.dataset.row);
+  const startCol = parseInt(startCell.dataset.col);
+  const endRow = parseInt(endCell.dataset.row);
+  const endCol = parseInt(endCell.dataset.col);
+  
+  const rowDiff = endRow - startRow;
+  const colDiff = endCol - startCol;
+  
+  const rowDir = rowDiff === 0 ? 0 : rowDiff / Math.abs(rowDiff);
+  const colDir = colDiff === 0 ? 0 : colDiff / Math.abs(colDiff);
+  
+  return [rowDir, colDir];
+}
+
+function getCellsInLine(startCell, endCell) {
+  const [rowDir, colDir] = getDirection(startCell, endCell);
+  const startRow = parseInt(startCell.dataset.row);
+  const startCol = parseInt(startCell.dataset.col);
+  const endRow = parseInt(endCell.dataset.row);
+  const endCol = parseInt(endCell.dataset.col);
+  
+  const cells = [];
+  let row = startRow;
+  let col = startCol;
+  
+  while (true) {
+    const cell = document.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+    if (!cell) break;
+    
+    cells.push(cell);
+    
+    if (row === endRow && col === endCol) break;
+    
+    row += rowDir;
+    col += colDir;
+  }
+  
+  return cells;
+}
+
+function createSelectionHighlight() {
+  if (selectionHighlight) {
+    selectionHighlight.remove();
+  }
+  selectionHighlight = document.createElement('div');
+  selectionHighlight.className = 'selection-highlight';
+  document.querySelector('.grid').appendChild(selectionHighlight);
+}
+
+function updateSelectionHighlight(startCell, endCell) {
+  if (!startCell || !endCell) return;
+  
+  const startRect = startCell.getBoundingClientRect();
+  const endRect = endCell.getBoundingClientRect();
+  const gridRect = document.querySelector('.grid').getBoundingClientRect();
+  
+  // Get cell centers
+  const startCenterX = startRect.left + startRect.width/2 - gridRect.left;
+  const startCenterY = startRect.top + startRect.height/2 - gridRect.top;
+  const endCenterX = endRect.left + endRect.width/2 - gridRect.left;
+  const endCenterY = endRect.top + endRect.height/2 - gridRect.top;
+  
+  // Calculate dimensions
+  const dx = endCenterX - startCenterX;
+  const dy = endCenterY - startCenterY;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  
+  const cellSize = startRect.width;
+  const highlightWidth = cellSize * 0.75;
+  
+  // Add extra width to ensure full coverage of end letters
+  const extraWidth = cellSize * 1.2; // Increase this value for more coverage
+  const totalWidth = length + extraWidth;
+  
+  selectionHighlight.style.height = `${highlightWidth}px`;
+  selectionHighlight.style.width = `${totalWidth}px`;
+  selectionHighlight.style.left = `${(startCenterX + endCenterX) / 2}px`;
+  selectionHighlight.style.top = `${(startCenterY + endCenterY) / 2}px`;
+  selectionHighlight.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+}
+
+function clearSelection() {
+  selection = [];
+  if (selectionHighlight) {
+    selectionHighlight.remove();
+    selectionHighlight = null;
+  }
+}
+
+function createPermanentHighlight(startCell, endCell) {
+  const highlight = document.createElement('div');
+  highlight.className = 'permanent-highlight';
+  document.querySelector('.grid').appendChild(highlight);
+  updateHighlightPosition(highlight, startCell, endCell);
+  return highlight;
+}
+
+function updateHighlightPosition(highlight, startCell, endCell) {
+  const startRect = startCell.getBoundingClientRect();
+  const endRect = endCell.getBoundingClientRect();
+  const gridRect = document.querySelector('.grid').getBoundingClientRect();
+  
+  const startCenterX = startRect.left + startRect.width/2 - gridRect.left;
+  const startCenterY = startRect.top + startRect.height/2 - gridRect.top;
+  const endCenterX = endRect.left + endRect.width/2 - gridRect.left;
+  const endCenterY = endRect.top + endRect.height/2 - gridRect.top;
+  
+  const dx = endCenterX - startCenterX;
+  const dy = endCenterY - startCenterY;
+  const length = Math.sqrt(dx * dx + dy * dy);
+  const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  
+  const cellSize = startRect.width;
+  const highlightWidth = cellSize * 0.75;
+  const extraWidth = cellSize * 1.2;
+  const totalWidth = length + extraWidth;
+  
+  highlight.style.height = `${highlightWidth}px`;
+  highlight.style.width = `${totalWidth}px`;
+  highlight.style.left = `${(startCenterX + endCenterX) / 2}px`;
+  highlight.style.top = `${(startCenterY + endCenterY) / 2}px`;
+  highlight.style.transform = `translate(-50%, -50%) rotate(${angle}deg)`;
+}
+
+// Add victory sound
+const victorySound = new Audio('assets/victory.mp3');
+
+function celebrateVictory() {
+  // Show victory overlay
+  document.getElementById('victoryOverlay').classList.add('show');
+  
+  // Play victory sound
+  victorySound.play();
+  
+  // Trigger confetti
+  const duration = 3000;
+  const animationEnd = Date.now() + duration;
+  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1001 };
+
+  function randomInRange(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  const interval = setInterval(function() {
+    const timeLeft = animationEnd - Date.now();
+
+    if (timeLeft <= 0) {
+      return clearInterval(interval);
+    }
+
+    const particleCount = 50 * (timeLeft / duration);
+    
+    // Confetti burst from both sides
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+    });
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+    });
+  }, 250);
+
+  // Hide victory overlay after animation
+  setTimeout(() => {
+    document.getElementById('victoryOverlay').classList.remove('show');
+  }, 4000);
+}
+
+function checkWord() {
+  if (selection.length < 2) return;
+  
+  const word = selection.map(c => c.textContent).join('');
+  const reversed = word.split('').reverse().join('');
+  
+  if (words.includes(word) || words.includes(reversed)) {
+    const foundWord = words.includes(word) ? word : reversed;
+    
+    // Create permanent highlight
+    const permanent = createPermanentHighlight(selection[0], selection[selection.length - 1]);
+    foundWords.set(foundWord, {
+      highlight: permanent,
+      startCell: selection[0],
+      endCell: selection[selection.length - 1]
+    });
+    
+    document.getElementById(`word-${foundWord}`).classList.add("found");
+    
+    // Check if all words are found
+    if (document.querySelectorAll('.word.found').length === words.length) {
+      stopTimer();
+      celebrateVictory();
+    }
+  }
+  clearSelection();
+}
+
+// Mouse events
+gridElement.addEventListener('mousedown', (e) => {
+  const cell = getCellFromEvent(e);
+  if (!cell || cell.classList.contains("found")) return;
+  
+  startTimer();
+  isDragging = true;
+  gridElement.classList.add('dragging');
+  lastCell = cell;
+  clearSelection();
+  createSelectionHighlight();
+  selection.push(cell);
+  updateSelectionHighlight(cell, cell);
+});
+
+gridElement.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  
+  const cell = getCellFromEvent(e);
+  if (!cell || cell === lastCell) return;
+  
+  const [rowDir, colDir] = getDirection(lastCell, cell);
+  if (Math.abs(rowDir) > 1 || Math.abs(colDir) > 1) return;
+  
+  const cells = getCellsInLine(lastCell, cell);
+  selection = cells.filter(c => !c.classList.contains("found"));
+  updateSelectionHighlight(lastCell, cell);
+});
+
+gridElement.addEventListener('mouseup', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  gridElement.classList.remove('dragging');
+  checkWord();
+});
+
+gridElement.addEventListener('mouseleave', () => {
+  if (isDragging) {
+    isDragging = false;
+    gridElement.classList.remove('dragging');
+    checkWord();
+  }
+});
+
+// Touch events
+gridElement.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const cell = getCellFromEvent(e.touches[0]);
+  if (!cell || cell.classList.contains("found")) return;
+  
+  startTimer();
+  isDragging = true;
+  gridElement.classList.add('dragging');
+  lastCell = cell;
+  clearSelection();
+  createSelectionHighlight();
+  selection.push(cell);
+  updateSelectionHighlight(cell, cell);
+});
+
+gridElement.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (!isDragging) return;
+  
+  const cell = getCellFromEvent(e.touches[0]);
+  if (!cell || cell === lastCell) return;
+  
+  const [rowDir, colDir] = getDirection(lastCell, cell);
+  if (Math.abs(rowDir) > 1 || Math.abs(colDir) > 1) return;
+  
+  const cells = getCellsInLine(lastCell, cell);
+  selection = cells.filter(c => !c.classList.contains("found"));
+  updateSelectionHighlight(lastCell, cell);
+});
+
+gridElement.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  if (!isDragging) return;
+  isDragging = false;
+  gridElement.classList.remove('dragging');
+  checkWord();
+});
+
+function resetGame() {
+  clearInterval(timerInterval);
+  startTime = null;
+  timerElement.textContent = '00:00';
+  grid.forEach(row => row.fill(''));
+  
+  // Clear all permanent highlights
+  foundWords.forEach(({highlight}) => highlight.remove());
+  foundWords.clear();
+  
+  placeWords();
+  fillRandom();
+  renderGrid();
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+function showHelp() {
+  alert('Find all the words in the grid! Drag to select words horizontally, vertically, or diagonally.');
+}
+
+// Add window resize handler to update permanent highlights
+window.addEventListener('resize', () => {
+  foundWords.forEach(({highlight, startCell, endCell}) => {
+    updateHighlightPosition(highlight, startCell, endCell);
+  });
+});
+
+// Init
+placeWords();
+fillRandom();
+renderGrid();
+</script>
+
+</body>
+</html> 
