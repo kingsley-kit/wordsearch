@@ -40,7 +40,7 @@
     }
     .grid { 
       display: grid;
-      grid-template-columns: repeat(12, 1fr);
+      grid-template-columns: repeat(10, 1fr);
       grid-template-rows: repeat(15, 1fr);
       gap: 2px;
       background: white;
@@ -49,7 +49,7 @@
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
       margin: 0 auto;
       width: 100%;
-      aspect-ratio: 12/15;
+      aspect-ratio: 10/15;
     }
     .cell {
       width: 100%;
@@ -159,7 +159,7 @@
     .controls {
       padding: 12px;
       display: flex;
-      gap: 12px;
+      gap: 5px;
       justify-content: center;
     }
     .control-btn {
@@ -219,11 +219,15 @@
         max-width: 100%;
         padding: 8px;
         gap: 1px;
-        aspect-ratio: 12/15;
+        aspect-ratio: 10/15;
+        touch-action: none;
       }
       .cell {
         font-size: min(16px, 3vw);
         line-height: 1;
+        min-width: 24px;
+        min-height: 24px;
+        touch-action: none;
       }
       .sidebar {
         order: -1;
@@ -231,8 +235,11 @@
         flex-direction: column;
         gap: 4px;
         margin: 0;
-        padding: 0;
+        padding: 8px 0 0 0;
         background: transparent;
+      }
+      .find-box {
+        margin-top: 4px;
       }
       .bottom-controls {
         display: flex;
@@ -241,7 +248,7 @@
         width: 100%;
       }
       .timer-container {
-        padding: 30px 60px;
+        padding: 15px 50px;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -249,22 +256,29 @@
         text-align: center;
       }
       .timer {
-        font-size: 2em;
-        line-height: 1.2;
+        font-size: 1.5em;
+        line-height: 1;
+        margin-bottom: 2px;
       }
       .best-time {
-        font-size: 0.9em;
-        line-height: 1.2;
+        font-size: 0.8em;
+        line-height: 1;
       }
-      .controls-container {
-        flex: 1;
-        margin: 1;
-        width: calc(50% - 3px);
-        min-width: 1;
+      .controls {
+        padding: 15px 50px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 15px;
+      }
+      .control-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
       }
       .find-title, .controls-title {
-        padding: 10px;
-        border-radius: 10px 10px 0 0;
+        padding: 8px;
+        font-size: 1em;
       }
       .word-list {
         flex-direction: row;
@@ -280,13 +294,6 @@
         flex: 0 0 auto;
         min-width: min-content;
       }
-      .controls {
-        padding: 15px 30px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 15px;
-      }
     }
 
     @media (max-width: 480px) {
@@ -298,19 +305,22 @@
         padding: 4px;
       }
       .sidebar {
-        gap: 2px;
+        padding: 6px 0 0 0;
+      }
+      .find-box {
+        margin-top: 3px;
       }
       .bottom-controls {
-        gap: 2px;
+        gap: 10px;
       }
       .timer-container {
-        padding: 12px 16px;
+        padding: 12px 40px;
       }
       .timer {
-        font-size: 1.2em;
+        font-size: 1.3em;
       }
       .best-time {
-        font-size: 0.85em;
+        font-size: 0.75em;
       }
       .word-list {
         gap: 8px;
@@ -321,8 +331,16 @@
         font-size: 13px;
       }
       .controls {
-        padding: 25px 40px;
-        gap: 6px;
+        padding: 12px 40px;
+        gap: 15px;
+      }
+      .control-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+      }
+      .find-title, .controls-title {
+        padding: 6px;
       }
     }
 
@@ -349,7 +367,7 @@
       .grid {
         height: 80vh;
         width: auto;
-        aspect-ratio: 12/15;
+        aspect-ratio: 10/15;
       }
       .word {
         font-size: 0.8em;
@@ -487,7 +505,7 @@
 <script>
 const words = ["GAMETIZE", "QUIZ", "POINTS", "TILE", "PLAYER"];
 const gridSize = 15;
-const gridWidth = 12;
+const gridWidth = 10;
 const gridElement = document.getElementById("grid");
 const wordsElement = document.getElementById("words");
 const timerElement = document.getElementById("timer");
@@ -861,7 +879,8 @@ gridElement.addEventListener('mouseleave', () => {
 // Touch events
 gridElement.addEventListener('touchstart', (e) => {
   e.preventDefault();
-  const cell = getCellFromEvent(e.touches[0]);
+  const touch = e.touches[0];
+  const cell = document.elementFromPoint(touch.clientX, touch.clientY).closest('.cell');
   if (!cell || cell.classList.contains("found")) return;
   
   startTimer();
@@ -872,22 +891,23 @@ gridElement.addEventListener('touchstart', (e) => {
   createSelectionHighlight();
   selection.push(cell);
   updateSelectionHighlight(cell, cell);
-});
+}, { passive: false });
 
 gridElement.addEventListener('touchmove', (e) => {
   e.preventDefault();
   if (!isDragging) return;
   
-  const cell = getCellFromEvent(e.touches[0]);
+  const touch = e.touches[0];
+  const cell = document.elementFromPoint(touch.clientX, touch.clientY).closest('.cell');
   if (!cell || cell === lastCell) return;
   
-  const [rowDir, colDir] = getDirection(lastCell, cell);
+  const [rowDir, colDir] = getDirection(selection[0], cell);
   if (Math.abs(rowDir) > 1 || Math.abs(colDir) > 1) return;
   
-  const cells = getCellsInLine(lastCell, cell);
+  const cells = getCellsInLine(selection[0], cell);
   selection = cells.filter(c => !c.classList.contains("found"));
-  updateSelectionHighlight(lastCell, cell);
-});
+  updateSelectionHighlight(selection[0], cell);
+}, { passive: false });
 
 gridElement.addEventListener('touchend', (e) => {
   e.preventDefault();
@@ -895,7 +915,15 @@ gridElement.addEventListener('touchend', (e) => {
   isDragging = false;
   gridElement.classList.remove('dragging');
   checkWord();
-});
+}, { passive: false });
+
+gridElement.addEventListener('touchcancel', (e) => {
+  e.preventDefault();
+  if (!isDragging) return;
+  isDragging = false;
+  gridElement.classList.remove('dragging');
+  clearSelection();
+}, { passive: false });
 
 function resetGame() {
   clearInterval(timerInterval);
