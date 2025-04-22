@@ -372,11 +372,10 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(255, 255, 255, 0.9);
+      background: rgba(0, 0, 0, 0.5);
       display: flex;
       justify-content: center;
       align-items: center;
-      flex-direction: column;
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.5s ease;
@@ -388,37 +387,62 @@
       pointer-events: auto;
     }
 
-    .victory-image {
-      width: 120px;
-      height: 120px;
-      object-fit: contain;
-      margin-bottom: 30px;
+    .victory-container {
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      text-align: center;
+      width: 300px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      transform: translateY(20px);
       opacity: 0;
-      transform: scale(0.8);
-      animation: popIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+      transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    @keyframes popIn {
-      to {
-        opacity: 1;
-        transform: scale(1);
-      }
+    .victory-overlay.show .victory-container {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .victory-header {
+      background: #2ECC71;
+      color: white;
+      font-size: 1.6em;
+      font-weight: bold;
+      padding: 15px 20px;
+      border-radius: 15px 15px 0 0;
+      margin: -30px -30px 20px -30px;
+    }
+
+    .victory-image {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+      margin: 20px auto;
+      display: block;
     }
 
     .victory-text {
-      font-size: 2em;
+      font-size: 1.5em;
       color: #333;
-      margin-top: 20px;
-      opacity: 0;
-      transform: translateY(20px);
-      animation: fadeInUp 0.5s ease forwards 0.3s;
+      margin: 20px 0;
     }
 
-    @keyframes fadeInUp {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    .continue-btn {
+      background: #2ECC71;
+      color: white;
+      border: none;
+      padding: 12px 40px;
+      border-radius: 25px;
+      font-size: 1.2em;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      width: 100%;
+      margin-top: 20px;
+    }
+
+    .continue-btn:hover {
+      background: #27AE60;
     }
   </style>
 </head>
@@ -452,8 +476,11 @@
 </div>
 
 <div class="victory-overlay" id="victoryOverlay">
-  <img src="assets/checkmark.png" alt="Victory checkmark" class="victory-image">
-  <div class="victory-text">All words found!</div>
+  <div class="victory-container">
+    <div class="victory-header">All words found!</div>
+    <img src="assets/checkmark.png" alt="Victory checkmark" class="victory-image">
+    <button class="continue-btn" onclick="hideVictoryOverlay()">Continue</button>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -716,6 +743,10 @@ function updateHighlightPosition(highlight, startCell, endCell) {
 // Add victory sound
 const victorySound = new Audio('assets/victory.mp3');
 
+function hideVictoryOverlay() {
+  document.getElementById('victoryOverlay').classList.remove('show');
+}
+
 function celebrateVictory() {
   // Show victory overlay
   document.getElementById('victoryOverlay').classList.add('show');
@@ -726,7 +757,7 @@ function celebrateVictory() {
   // Trigger confetti
   const duration = 3000;
   const animationEnd = Date.now() + duration;
-  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 1001 };
+  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 999 };
 
   function randomInRange(min, max) {
     return Math.random() * (max - min) + min;
@@ -753,11 +784,6 @@ function celebrateVictory() {
       origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
     });
   }, 250);
-
-  // Hide victory overlay after animation
-  setTimeout(() => {
-    document.getElementById('victoryOverlay').classList.remove('show');
-  }, 4000);
 }
 
 function checkWord() {
