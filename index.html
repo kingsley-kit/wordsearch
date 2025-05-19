@@ -20,12 +20,13 @@
     }
     .game-container {
       display: flex;
+      flex-direction: row;
       justify-content: center;
+      align-items: flex-start;
       gap: 20px;
       max-width: 1200px;
       max-height: 90vh;
       margin: 0 auto;
-      align-items: flex-start;
       padding: 20px;
       flex: 1;
       position: relative;
@@ -113,6 +114,8 @@
     }
     .sidebar {
       width: 250px;
+      min-width: 200px;
+      max-width: 100vw;
       display: flex;
       flex-direction: column;
       gap: 2px;
@@ -201,102 +204,42 @@
       font-weight: normal;
     }
 
-    @media (max-width: 768px) {
-      body {
-        padding: 0;
-      }
+    @media (max-width: 900px) {
       .game-container {
+        padding: 10px;
+        gap: 10px;
+      }
+      .sidebar {
+        width: 180px;
+        padding: 6px;
+      }
+      .grid {
         padding: 8px;
+      }
+    }
+    @media (max-width: 600px) {
+      .game-container {
         flex-direction: column;
         align-items: stretch;
         gap: 8px;
+        padding: 4px;
+        max-height: none;
       }
       #game {
         width: 100%;
-        max-width: none;
-        flex: 1;
-        display: flex;
-        align-items: center;
-      }
-      .grid {
-        width: 100%;
-        max-width: 100%;
-        padding: 8px;
-        gap: 1px;
-        aspect-ratio: 10/15;
-        touch-action: none;
-      }
-      .cell {
-        font-size: min(16px, 3vw);
-        line-height: 1;
-        min-width: 24px;
-        min-height: 24px;
-        touch-action: none;
+        min-width: 0;
       }
       .sidebar {
-        order: -1;
         width: 100%;
-        flex-direction: column;
-        gap: 4px;
-        margin: 0;
-        padding: 8px 0 0 0;
-        background: transparent;
+        min-width: 0;
+        margin-left: 0;
+        margin-top: 8px;
+        padding: 4px;
+        border-radius: 8px;
       }
-      .find-box {
-        margin-top: 4px;
-      }
-      .bottom-controls {
-        display: flex;
-        justify-content: space-between;
-        gap: 15px;
-        width: 100%;
-      }
-      .timer-container {
-        padding: 15px 50px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        text-align: center;
-      }
-      .timer {
-        font-size: 1.5em;
-        line-height: 1;
-        margin-bottom: 2px;
-      }
-      .best-time {
-        font-size: 0.8em;
-        line-height: 1;
-      }
-      .controls {
-        padding: 15px 50px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 15px;
-      }
-      .control-btn {
-        width: 32px;
-        height: 32px;
-        font-size: 16px;
-      }
-      .find-title, .controls-title {
-        padding: 8px;
-        font-size: 1em;
-      }
-      .word-list {
-        flex-direction: row;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-items: center;
-        gap: 10px;
-        padding: 10px;
-      }
-      .word {
-        padding: 4px 8px;
-        font-size: 14px;
-        flex: 0 0 auto;
-        min-width: min-content;
+      .grid {
+        padding: 4px;
+        margin: 0 auto;
       }
     }
 
