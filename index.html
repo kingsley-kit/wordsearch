@@ -6,7 +6,8 @@
   <title>Word Search</title>
   <style>
     body {
-      background: #23253a;
+      background: #23253a url('assets/background.webp') no-repeat center center fixed;
+      background-size: cover;
       color: #222;
       font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
       margin: 0;
@@ -62,6 +63,28 @@
       text-decoration: line-through;
       color: #aaa;
     }
+    .word-list span.strike {
+      position: relative;
+      color: #bbb;
+    }
+    .word-list span.strike .strike-line {
+      position: absolute;
+      left: 0; top: 50%;
+      height: 3px;
+      background: #bdbdbd;
+      border-radius: 2px;
+      width: 0;
+      transform: translateY(-50%);
+      transition: width 0.4s cubic-bezier(.68,-0.55,.27,1.55);
+      z-index: 1;
+    }
+    .word-list span.strike .strike-line.animated {
+      width: 100%;
+    }
+    .word-list span.strike .checkmark.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
     .grid {
       position: relative;
       display: grid;
@@ -92,10 +115,11 @@
       transition: background 0.2s, color 0.2s;
       margin: 0;
       padding: 0;
+      position: relative;
     }
     .cell.selected {
       background: none;
-      color: #131313;
+      color: #fff;
       border-radius: 24px;
       box-shadow: none;
       position: relative;
@@ -115,6 +139,55 @@
       z-index: 2;
       pointer-events: none;
       transition: all 0.1s;
+    }
+    .sparkle-burst {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+      z-index: 5;
+    }
+    .sparkle {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      opacity: 0.8;
+      background: var(--sparkle-color, #F44336);
+      animation: sparkle-burst 1.2s linear infinite;
+      left: -6px;
+      top: -6px;
+    }
+    .sparkle.star {
+      width: 16px;
+      height: 16px;
+      clip-path: polygon(
+        50% 0%,
+        60% 40%,
+        100% 50%,
+        60% 60%,
+        50% 100%,
+        40% 60%,
+        0% 50%,
+        40% 40%
+      );
+      left: -8px;
+      top: -8px;
+    }
+    @keyframes sparkle-burst {
+      0% {
+        transform: scale(0.5) translate(0,0);
+        opacity: 1;
+      }
+      70% {
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1.2) translate(var(--tx, 0), var(--ty, 0));
+        opacity: 0;
+      }
     }
     /* Popup styles */
     .popup-overlay {
@@ -426,6 +499,7 @@
     let foundWordPills = [];
     const foundColors = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#009688', '#F44336'];
     let foundColorIndex = 0;
+    let lastSparkleCell = null;
 
     function getCell(row, col) {
       return document.querySelector(`.cell[data-row='${row}'][data-col='${col}']`);
@@ -444,7 +518,54 @@
 
     function showHighlightPill(cells) {
       const centerPill = document.getElementById('centerSelectedWord');
-      if (cells.length < 2) {
+      // Remove previous sparkle if not the latest
+      if (lastSparkleCell && (!cells.length || lastSparkleCell !== cells[cells.length - 1])) {
+        lastSparkleCell.classList.remove('sparkle-active', 'selected');
+        const sparkle = lastSparkleCell.querySelector('.sparkle-burst');
+        if (sparkle) sparkle.remove();
+        lastSparkleCell = null;
+      }
+      if (cells.length >= 1) {
+        // Highlight all selected cells
+        cells.forEach(cell => cell.classList.add('selected'));
+        // Sparkle only on the last cell
+        const cell = cells[cells.length - 1];
+        if (!cell.classList.contains('sparkle-active')) {
+          cell.classList.add('sparkle-active');
+          // Create sparkle burst
+          const burst = document.createElement('div');
+          burst.className = 'sparkle-burst';
+          const color = foundColors[foundColorIndex % foundColors.length];
+          // 6 circles, 2 stars
+          for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI * 2 * i) / 6;
+            const tx = Math.cos(angle) * 48 + 'px';
+            const ty = Math.sin(angle) * 48 + 'px';
+            const s = document.createElement('div');
+            s.className = 'sparkle';
+            s.style.setProperty('--tx', tx);
+            s.style.setProperty('--ty', ty);
+            s.style.background = color;
+            s.style.animationDelay = (i * 0.1) + 's';
+            burst.appendChild(s);
+          }
+          for (let i = 0; i < 2; i++) {
+            const angle = (Math.PI * 2 * (i + 0.5)) / 2;
+            const tx = Math.cos(angle) * 66 + 'px';
+            const ty = Math.sin(angle) * 66 + 'px';
+            const s = document.createElement('div');
+            s.className = 'sparkle star';
+            s.style.setProperty('--tx', tx);
+            s.style.setProperty('--ty', ty);
+            s.style.background = color;
+            s.style.animationDelay = (i * 0.2 + 0.3) + 's';
+            burst.appendChild(s);
+          }
+          cell.appendChild(burst);
+        }
+        lastSparkleCell = cell;
+      }
+      if (cells.length < 1) {
         highlightPill.style.display = 'none';
         centerPill.textContent = '';
         centerPill.style.background = 'transparent';
@@ -486,6 +607,13 @@
       centerPill.textContent = '';
       centerPill.style.background = 'transparent';
       centerPill.style.color = '#222';
+      // Remove all highlights and sparkles
+      document.querySelectorAll('.cell.selected, .cell.sparkle-active').forEach(cell => {
+        cell.classList.remove('selected', 'sparkle-active');
+        const sparkle = cell.querySelector('.sparkle-burst');
+        if (sparkle) sparkle.remove();
+      });
+      lastSparkleCell = null;
     }
 
     function clearSelection() {
@@ -517,6 +645,140 @@
       return cells.map(cell => cell.textContent).reverse().join('');
     }
 
+    // Helper to get the bounding rect of a group of cells (for ghost word start position)
+    function getWordBoundingRect(cells) {
+      if (!cells.length) return null;
+      const firstRect = cells[0].getBoundingClientRect();
+      const lastRect = cells[cells.length - 1].getBoundingClientRect();
+      const gridRect = gridDiv.getBoundingClientRect();
+      // Get the center between first and last cell
+      const left = Math.min(firstRect.left, lastRect.left);
+      const right = Math.max(firstRect.right, lastRect.right);
+      const top = Math.min(firstRect.top, lastRect.top);
+      const bottom = Math.max(firstRect.bottom, lastRect.bottom);
+      return {
+        left: left - gridRect.left,
+        top: top - gridRect.top,
+        width: right - left,
+        height: bottom - top
+      };
+    }
+
+    // Create a ghost word element
+    function createGhostWord(word, cells) {
+      // Remove any previous ghost word
+      const prev = document.getElementById('ghostWord');
+      if (prev) prev.remove();
+      const rect = getWordBoundingRect(cells);
+      if (!rect) return;
+      const ghost = document.createElement('div');
+      ghost.id = 'ghostWord';
+      // Use the previous highlight color (the one just used for the found word)
+      const color = foundColors[(foundColorIndex - 1 + foundColors.length) % foundColors.length];
+      // Determine direction: horizontal, vertical, diagonal
+      let direction = 'row';
+      if (cells.length > 1) {
+        const r0 = parseInt(cells[0].dataset.row), c0 = parseInt(cells[0].dataset.col);
+        const r1 = parseInt(cells[1].dataset.row), c1 = parseInt(cells[1].dataset.col);
+        if (r0 === r1) direction = 'row';
+        else if (c0 === c1) direction = 'column';
+        else direction = 'diagonal';
+      }
+      ghost.innerHTML = '';
+      for (let i = 0; i < word.length; i++) {
+        const bubble = document.createElement('div');
+        bubble.textContent = word[i];
+        bubble.style.display = 'flex';
+        bubble.style.alignItems = 'center';
+        bubble.style.justifyContent = 'center';
+        bubble.style.width = '36px';
+        bubble.style.height = '36px';
+        bubble.style.margin = direction === 'row' ? '0 2px' : direction === 'column' ? '2px 0' : '0';
+        bubble.style.background = color;
+        bubble.style.color = '#fff';
+        bubble.style.fontWeight = 'bold';
+        bubble.style.fontSize = '1.2em';
+        bubble.style.borderRadius = '50%';
+        bubble.style.overflow = 'hidden';
+        ghost.appendChild(bubble);
+      }
+      ghost.style.gap = '0';
+      ghost.style.padding = '0 4px';
+      ghost.style.background = 'none';
+      ghost.style.transform = 'scale(0.7)';
+      ghost.style.transition = 'transform 0.18s cubic-bezier(.68,-0.55,.27,1.55)';
+      setTimeout(() => { ghost.style.transform = 'scale(1)'; }, 10);
+      ghost.style.fontSize = '1.2em';
+      // Layout direction
+      ghost.style.flexDirection = direction === 'row' ? 'row' : direction === 'column' ? 'column' : 'unset';
+      if (direction === 'diagonal') {
+        ghost.style.flexDirection = 'unset';
+        ghost.style.position = 'absolute';
+        ghost.style.display = 'block';
+        // For diagonal, position each bubble absolutely over its corresponding grid cell
+        for (let i = 0; i < word.length; i++) {
+          const bubble = ghost.children[i];
+          const cellRect = cells[i].getBoundingClientRect();
+          const gridRect = gridDiv.getBoundingClientRect();
+          bubble.style.position = 'absolute';
+          bubble.style.left = (cellRect.left - gridRect.left + cellRect.width / 2 - 18) + 'px';
+          bubble.style.top = (cellRect.top - gridRect.top + cellRect.height / 2 - 18) + 'px';
+          bubble.style.margin = '0';
+        }
+        // Set ghost container to cover the grid area
+        ghost.style.left = '0px';
+        ghost.style.top = '0px';
+        ghost.style.width = gridDiv.offsetWidth + 'px';
+        ghost.style.height = gridDiv.offsetHeight + 'px';
+      } else {
+        ghost.style.display = 'flex';
+        ghost.style.position = 'absolute';
+        ghost.style.left = rect.left + 'px';
+        ghost.style.top = rect.top + 'px';
+        ghost.style.width = rect.width + 'px';
+        ghost.style.height = rect.height + 'px';
+      }
+      ghost.style.zIndex = 20;
+      ghost.style.pointerEvents = 'none';
+      gridDiv.appendChild(ghost);
+    }
+
+    // Helper to get the bounding rect of a word in the word list
+    function getWordListRect(word) {
+      const span = document.getElementById(`word-${word}`);
+      if (!span) return null;
+      const rect = span.getBoundingClientRect();
+      const parentRect = gridDiv.getBoundingClientRect();
+      return {
+        left: rect.left - parentRect.left,
+        top: rect.top - parentRect.top,
+        width: rect.width,
+        height: rect.height
+      };
+    }
+
+    // Animate ghost word to word list
+    function animateGhostWordToList(word, cells) {
+      const ghost = document.getElementById('ghostWord');
+      if (!ghost) return;
+      const startRect = ghost.getBoundingClientRect();
+      const endRect = getWordListRect(word);
+      if (!endRect) return;
+      // Calculate translate and scale to center the ghost word over the word list entry
+      const ghostWidth = ghost.offsetWidth;
+      const ghostHeight = ghost.offsetHeight;
+      const dx = (endRect.left + endRect.width / 2 - ghostWidth / 2) - parseFloat(ghost.style.left);
+      const dy = (endRect.top + endRect.height / 2 - ghostHeight / 2) - parseFloat(ghost.style.top);
+      const scale = endRect.height / ghostHeight;
+      // Animate
+      ghost.style.transition = 'transform 0.7s cubic-bezier(.68,-0.55,.27,1.55), opacity 0.3s 0.5s';
+      ghost.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+      ghost.style.opacity = '0.2';
+      setTimeout(() => {
+        if (ghost.parentNode) ghost.parentNode.removeChild(ghost);
+      }, 1000);
+    }
+
     function markFound(cells, word) {
       cells.forEach(cell => cell.classList.add('found'));
       foundWords.add(word);
@@ -531,6 +793,16 @@
       foundColorIndex++;
       foundWordPills.push({ r1, c1, r2, c2, color });
       renderFoundPills();
+      // Step 1: Show ghost word at grid position
+      createGhostWord(word, cells);
+      // Play found sound immediately after word is found
+      foundAudio.currentTime = 0; foundAudio.play();
+      // Step 2: Animate ghost word to word list after 0.3s
+      setTimeout(() => {
+        animateGhostWordToList(word, cells);
+        // After fly-to-list, trigger strike-through
+        setTimeout(() => strikeThroughWord(word), 700);
+      }, 300);
       if (foundWords.size === words.length) {
         showLevelClearedPopup();
       }
@@ -777,6 +1049,30 @@
       centerPill.style.background = 'transparent';
       centerPill.style.color = '#222';
     });
+
+    // Add audio elements for found and stroke
+    const foundAudio = new Audio('assets/found.wav');
+    foundAudio.volume = 0.5;
+    const strokeAudio = new Audio('assets/stroke.mp3');
+
+    // Strike-through animation in word list
+    function strikeThroughWord(word) {
+      const span = document.getElementById(`word-${word}`);
+      if (!span) return;
+      // Add strike class and line
+      span.classList.add('strike');
+      let line = span.querySelector('.strike-line');
+      if (!line) {
+        line = document.createElement('span');
+        line.className = 'strike-line';
+        span.appendChild(line);
+      }
+      // Animate line and play stroke sound
+      setTimeout(() => {
+        line.classList.add('animated');
+        strokeAudio.currentTime = 0; strokeAudio.play();
+      }, 200);
+    }
   </script>
 </body>
 </html>
