@@ -68,10 +68,10 @@
       grid-template-columns: repeat(6, 1fr);
       grid-template-rows: repeat(8, 1fr);
       font-weight: bold;
-      gap: 0;
+      gap: 2px;
       background: #f5f7fa;
       border-radius: 12px;
-      padding: 2vw;
+      padding: 8px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
       width: 100%;
       max-width: 400px;
@@ -86,10 +86,12 @@
       justify-content: center;
       font-size: clamp(1.8em, 4vw, 2em);
       background: none;
-      border-radius: 99px;
+      border-radius: 0;
       cursor: pointer;
       user-select: none;
       transition: background 0.2s, color 0.2s;
+      margin: 0;
+      padding: 0;
     }
     .cell.selected {
       background: none;
@@ -146,7 +148,7 @@
       align-items: center;
     }
     .popup-headline {
-      font-size: 1.6em;
+      font-size: 2em;
       font-weight: bold;
       color: #e6b200;
       margin-bottom: 24px;
@@ -154,49 +156,122 @@
     }
     .popup-btns {
       display: flex;
+      flex-direction: column;
       gap: 16px;
       margin-top: 16px;
+      width: 100%;
     }
     .popup-btn {
-      font-size: 1.1em;
+      font-size: 1.2em;
       font-weight: bold;
       border-radius: 999px;
-      padding: 10px 32px;
+      padding: 16px 0;
       border: none;
       cursor: pointer;
       transition: background 0.15s, color 0.15s, border 0.15s;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+      outline: none;
+      display: block;
+      text-align: center;
+      box-shadow: 0px 4px 0px #585c5c, 0px 4px 0px  #585c5c;
     }
     .popup-btn.cta {
-      background: #4CAF50;
+      background: #19c37d;
       color: #fff;
       border: none;
-      box-shadow: 0 2px 8px rgba(76,175,80,0.10);
+      box-shadow: 0px 4px 0px #0A8F4D;
     }
-    .popup-btn.cta:active {
-      background: #388e3c;
+    .popup-btn.cta:active,
+    .popup-btn.cta:hover {
+      background: #169b63;
     }
     .popup-btn.outline {
-      background: #fff;
-      color: #4CAF50;
-      border: 2px solid #4CAF50;
+      background: #b0bec5;
+      color: #fff;
+      border: none;
     }
-    .popup-btn.outline:active {
-      background: #e8f5e9;
+    .popup-btn.outline:active,
+    .popup-btn.outline:hover {
+      background: #78909c;
+    }
+    .popup-btn.cta:focus,
+    .popup-btn.outline:focus {
+      box-shadow: 0 0 0 2px #19c37d44;
+    }
+    .popup-btn.cta,
+    .popup-btn.outline {
+      text-decoration: none !important;
+    }
+    /* Shimmer effect */
+    .popup-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -75%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+      z-index: 2;
+      pointer-events: none;
+      animation: shimmer 3s linear infinite;
+      animation-delay: 0s;
+      animation-iteration-count: infinite;
+    }
+    .popup-btn.outline::before {
+      animation-delay: 2s;
+    }
+    @keyframes shimmer {
+      0% { left: -75%; }
+      80% { left: 110%; }
+      100% { left: 110%; }
+    }
+    .popup-btn {
+      animation-delay: 0s;
+      animation-iteration-count: infinite;
+    }
+    .blurred {
+      filter: blur(6px) brightness(0.9);
+      transition: filter 0.2s;
+    }
+    .center-pill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 6px auto 18px auto;
+      min-width: 64px;
+      min-height: 44px;
+      padding: 0 28px;
+      background: transparent;
+      color: #222;
+      font-size: 1.5em;
+      font-weight: bold;
+      border-radius: 999px;
+      box-shadow: none;
+      letter-spacing: 0.1em;
+      transition: background 0.15s, color 0.15s;
+      position: relative;
+      z-index: 10;
+      pointer-events: none;
+      min-height: 48px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container" id="mainContainer">
     <div class="top-bar">
       <span class="game-title">Word Search</span>
     </div>
     <div class="word-list" id="wordList">
       <!-- Words will be inserted here -->
     </div>
+    <div id="centerSelectedWord" class="center-pill"></div>
     <div class="grid" id="grid">
       <!-- Grid will be inserted here -->
     </div>
   </div>
+  <canvas id="fireworksCanvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:1001;pointer-events:none;display:none;"></canvas>
   <div id="levelClearedPopup" class="popup-overlay">
     <div class="popup-modal">
       <div class="popup-headline">Cleared!</div>
@@ -368,8 +443,12 @@
     }
 
     function showHighlightPill(cells) {
+      const centerPill = document.getElementById('centerSelectedWord');
       if (cells.length < 2) {
         highlightPill.style.display = 'none';
+        centerPill.textContent = '';
+        centerPill.style.background = 'transparent';
+        centerPill.style.color = '#222';
         return;
       }
       const first = getCellRect(cells[0]);
@@ -395,10 +474,18 @@
       highlightPill.style.top = (centerY - first.height * 0.45) + 'px';
       highlightPill.style.transform = `rotate(${angle}deg)`;
       highlightPill.style.background = foundColors[foundColorIndex % foundColors.length];
+      // Show selected word in center pill
+      centerPill.textContent = getSelectedWord(cells);
+      centerPill.style.background = foundColors[foundColorIndex % foundColors.length];
+      centerPill.style.color = '#fff';
     }
 
     function hideHighlightPill() {
       highlightPill.style.display = 'none';
+      const centerPill = document.getElementById('centerSelectedWord');
+      centerPill.textContent = '';
+      centerPill.style.background = 'transparent';
+      centerPill.style.color = '#222';
     }
 
     function clearSelection() {
@@ -566,9 +653,13 @@
     // Popup logic
     function showLevelClearedPopup() {
       document.getElementById('levelClearedPopup').classList.add('active');
+      document.getElementById('mainContainer').classList.add('blurred');
+      startFireworks();
     }
     function hideLevelClearedPopup() {
       document.getElementById('levelClearedPopup').classList.remove('active');
+      document.getElementById('mainContainer').classList.remove('blurred');
+      stopFireworks();
     }
     // Example: Uncomment to test popup
     // showLevelClearedPopup();
@@ -602,6 +693,90 @@
       hideLevelClearedPopup();
     }
     document.getElementById('restartBtn').onclick = resetGame;
+
+    // Fireworks animation
+    let fireworksActive = false;
+    const fireworksCanvas = document.getElementById('fireworksCanvas');
+    let fwCtx = fireworksCanvas.getContext('2d');
+    let fireworks = [];
+    function resizeFireworksCanvas() {
+      fireworksCanvas.width = window.innerWidth;
+      fireworksCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeFireworksCanvas);
+    function randomColor() {
+      const colors = ['#FFD700', '#FF4081', '#40C4FF', '#7C4DFF', '#00E676', '#FF9800', '#F44336'];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+    function launchFirework() {
+      const x = Math.random() * fireworksCanvas.width * 0.8 + fireworksCanvas.width * 0.1;
+      const y = Math.random() * fireworksCanvas.height * 0.4 + fireworksCanvas.height * 0.1;
+      const color = randomColor();
+      const particles = [];
+      for (let i = 0; i < 24; i++) {
+        const angle = (Math.PI * 2 * i) / 24;
+        const speed = Math.random() * 2 + 2;
+        particles.push({
+          x, y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          alpha: 1,
+          color
+        });
+      }
+      fireworks.push({ particles });
+    }
+    function drawFireworks() {
+      fwCtx.clearRect(0, 0, fireworksCanvas.width, fireworksCanvas.height);
+      for (let f = fireworks.length - 1; f >= 0; f--) {
+        const firework = fireworks[f];
+        let allGone = true;
+        for (const p of firework.particles) {
+          if (p.alpha > 0.05) {
+            allGone = false;
+            fwCtx.save();
+            fwCtx.globalAlpha = p.alpha;
+            fwCtx.beginPath();
+            fwCtx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
+            fwCtx.fillStyle = p.color;
+            fwCtx.shadowColor = p.color;
+            fwCtx.shadowBlur = 12;
+            fwCtx.fill();
+            fwCtx.restore();
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.04; // gravity
+            p.alpha *= 0.96;
+          }
+        }
+        if (allGone) fireworks.splice(f, 1);
+      }
+    }
+    function animateFireworks() {
+      if (!fireworksActive) return;
+      drawFireworks();
+      if (Math.random() < 0.08) launchFirework();
+      requestAnimationFrame(animateFireworks);
+    }
+    function startFireworks() {
+      resizeFireworksCanvas();
+      fireworksActive = true;
+      fireworksCanvas.style.display = 'block';
+      animateFireworks();
+    }
+    function stopFireworks() {
+      fireworksActive = false;
+      fireworksCanvas.style.display = 'none';
+      fireworks = [];
+    }
+
+    // On load, set center pill color
+    document.addEventListener('DOMContentLoaded', () => {
+      const centerPill = document.getElementById('centerSelectedWord');
+      centerPill.textContent = '';
+      centerPill.style.background = 'transparent';
+      centerPill.style.color = '#222';
+    });
   </script>
 </body>
 </html>
