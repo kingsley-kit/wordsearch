@@ -107,7 +107,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: clamp(1.8em, 4vw, 2.1em);
+      font-size: clamp(1.9em, 4vw, 2.2em);
       background: none;
       border-radius: 0;
       cursor: pointer;
@@ -443,12 +443,17 @@
     }
 
     function generateGrid() {
-      let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(''));
-      for (let word of words) {
-        if (!placeWord(grid, word)) {
-          console.warn('Could not place word:', word);
+      let grid, placed;
+      do {
+        grid = Array.from({ length: ROWS }, () => Array(COLS).fill(''));
+        placed = true;
+        for (let word of words) {
+          if (!placeWord(grid, word)) {
+            placed = false;
+            break;
+          }
         }
-      }
+      } while (!placed);
       fillGrid(grid);
       return grid;
     }
@@ -500,6 +505,7 @@
     const foundColors = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#009688', '#F44336'];
     let foundColorIndex = 0;
     let lastSparkleCell = null;
+    let lastHighlightedCell = null; // Track the last highlighted cell
 
     function getCell(row, col) {
       return document.querySelector(`.cell[data-row='${row}'][data-col='${col}']`);
@@ -782,8 +788,6 @@
     function markFound(cells, word) {
       cells.forEach(cell => cell.classList.add('found'));
       foundWords.add(word);
-      const wordSpan = document.getElementById(`word-${word}`);
-      if (wordSpan) wordSpan.classList.add('found');
       // Store pill info for rendering
       const r1 = parseInt(cells[0].dataset.row);
       const c1 = parseInt(cells[0].dataset.col);
@@ -845,6 +849,9 @@
         clearSelection();
         startCell.classList.add('selected');
         selectedCells = [startCell];
+        // Play pop sound for the first highlighted letter
+        playPopSound();
+        lastHighlightedCell = startCell;
         showHighlightPill(selectedCells);
       }
     }
@@ -860,7 +867,14 @@
         // Only allow straight lines
         if (r1 === r2 || c1 === c2 || Math.abs(r2 - r1) === Math.abs(c2 - c1)) {
           selectedCells = getLineCells(r1, c1, r2, c2);
-          selectedCells.forEach(cell => cell.classList.add('selected'));
+          selectedCells.forEach(cell => {
+            cell.classList.add('selected');
+            // Only play pop sound if this is a new cell being highlighted
+            if (cell !== lastHighlightedCell) {
+              playPopSound();
+              lastHighlightedCell = cell;
+            }
+          });
           showHighlightPill(selectedCells);
         } else {
           hideHighlightPill();
@@ -871,6 +885,7 @@
     function handlePointerUp(e) {
       if (!isSelecting) return;
       isSelecting = false;
+      lastHighlightedCell = null; // Reset the last highlighted cell
       if (selectedCells.length > 0) {
         let word = getSelectedWord(selectedCells);
         let wordRev = getSelectedWordReverse(selectedCells);
@@ -894,10 +909,13 @@
     window.addEventListener('pointerup', handlePointerUp);
 
     // --- Touch support ---
+    let lastTouchCell = null; // Track last touched cell for mobile
+
     gridDiv.addEventListener('touchstart', function(e) {
       const touch = e.touches[0];
       const target = document.elementFromPoint(touch.clientX, touch.clientY);
       if (target && target.classList.contains('cell')) {
+        lastTouchCell = target;
         handlePointerDown({ target });
         e.preventDefault();
       }
@@ -906,18 +924,21 @@
     gridDiv.addEventListener('touchmove', function(e) {
       const touch = e.touches[0];
       const target = document.elementFromPoint(touch.clientX, touch.clientY);
-      if (target && target.classList.contains('cell')) {
+      if (target && target.classList.contains('cell') && target !== lastTouchCell) {
+        lastTouchCell = target;
         handlePointerEnter({ target });
         e.preventDefault();
       }
     }, { passive: false });
 
     gridDiv.addEventListener('touchend', function(e) {
+      lastTouchCell = null;
       handlePointerUp(e);
       e.preventDefault();
     }, { passive: false });
 
     gridDiv.addEventListener('touchcancel', function(e) {
+      lastTouchCell = null;
       handlePointerUp(e);
       e.preventDefault();
     }, { passive: false });
@@ -1060,6 +1081,23 @@
     foundAudio.volume = 0.5;
     const strokeAudio = new Audio('assets/stroke.mp3');
     const clearedAudio = new Audio('assets/cleared.mp3');
+    
+    // Create multiple instances of pop sound for faster response
+    const popSounds = Array.from({ length: 8 }, () => {
+        const audio = new Audio('assets/pop.mp3');
+        audio.volume = 0.1;
+        audio.load(); // Preload the audio
+        return audio;
+    });
+    let currentPopIndex = 0;
+
+    function playPopSound() {
+        const sound = popSounds[currentPopIndex];
+        sound.volume = 0.1; // Ensure volume is always 0.2
+        sound.currentTime = 0;
+        sound.play();
+        currentPopIndex = (currentPopIndex + 1) % popSounds.length;
+    }
 
     // Strike-through animation in word list
     function strikeThroughWord(word) {
@@ -1077,6 +1115,7 @@
       setTimeout(() => {
         line.classList.add('animated');
         strokeAudio.currentTime = 0; strokeAudio.play();
+        span.classList.add('found'); // Add found class only when strike animation starts
       }, 200);
     }
   </script>
