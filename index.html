@@ -500,6 +500,7 @@
     let startCell = null;
     let endCell = null;
     let selectedCells = [];
+    let prevSelectedCells = [];
     let foundWords = new Set();
     let foundWordPills = [];
     const foundColors = ['#2196F3', '#4CAF50', '#FF9800', '#9C27B0', '#009688', '#F44336'];
@@ -623,7 +624,8 @@
     }
 
     function clearSelection() {
-      selectedCells.forEach(cell => cell.classList.remove('selected'));
+      prevSelectedCells.forEach(cell => cell.classList.remove('selected'));
+      prevSelectedCells = [];
       selectedCells = [];
       hideHighlightPill();
     }
@@ -841,6 +843,12 @@
       }
     }
 
+    // Detect if on mobile device
+    function isMobile() {
+      return /Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent);
+    }
+    const isMobileDevice = isMobile();
+
     function handlePointerDown(e) {
       if (e.target.classList.contains('cell')) {
         isSelecting = true;
@@ -849,8 +857,8 @@
         clearSelection();
         startCell.classList.add('selected');
         selectedCells = [startCell];
-        // Play pop sound for the first highlighted letter
-        playPopSound();
+        // Play pop sound for the first highlighted letter (not on mobile)
+        if (!isMobileDevice) playPopSound();
         lastHighlightedCell = startCell;
         showHighlightPill(selectedCells);
       }
@@ -867,14 +875,25 @@
         // Only allow straight lines
         if (r1 === r2 || c1 === c2 || Math.abs(r2 - r1) === Math.abs(c2 - c1)) {
           selectedCells = getLineCells(r1, c1, r2, c2);
+          // Only update DOM for changed cells
+          const newSet = new Set(selectedCells);
+          const prevSet = new Set(prevSelectedCells);
           selectedCells.forEach(cell => {
-            cell.classList.add('selected');
-            // Only play pop sound if this is a new cell being highlighted
-            if (cell !== lastHighlightedCell) {
-              playPopSound();
-              lastHighlightedCell = cell;
+            if (!prevSet.has(cell)) {
+              cell.classList.add('selected');
+              // Only play pop sound if this is a new cell being highlighted (not on mobile)
+              if (cell !== lastHighlightedCell && !isMobileDevice) {
+                playPopSound();
+                lastHighlightedCell = cell;
+              }
             }
           });
+          prevSelectedCells.forEach(cell => {
+            if (!newSet.has(cell)) {
+              cell.classList.remove('selected');
+            }
+          });
+          prevSelectedCells = [...selectedCells];
           showHighlightPill(selectedCells);
         } else {
           hideHighlightPill();
@@ -886,6 +905,7 @@
       if (!isSelecting) return;
       isSelecting = false;
       lastHighlightedCell = null; // Reset the last highlighted cell
+      prevSelectedCells = [];
       if (selectedCells.length > 0) {
         let word = getSelectedWord(selectedCells);
         let wordRev = getSelectedWordReverse(selectedCells);
@@ -903,9 +923,28 @@
       clearSelection();
     }
 
+    // Throttle utility
+    function throttle(fn, wait) {
+      let lastTime = 0;
+      let timeout;
+      return function(...args) {
+        const now = Date.now();
+        if (now - lastTime >= wait) {
+          lastTime = now;
+          fn.apply(this, args);
+        } else {
+          clearTimeout(timeout);
+          timeout = setTimeout(() => {
+            lastTime = Date.now();
+            fn.apply(this, args);
+          }, wait - (now - lastTime));
+        }
+      };
+    }
+
     // Attach event listeners
     gridDiv.addEventListener('pointerdown', handlePointerDown);
-    gridDiv.addEventListener('pointerover', handlePointerEnter);
+    gridDiv.addEventListener('pointerover', throttle(handlePointerEnter, 16));
     window.addEventListener('pointerup', handlePointerUp);
 
     // --- Touch support ---
@@ -921,7 +960,7 @@
       }
     }, { passive: false });
 
-    gridDiv.addEventListener('touchmove', function(e) {
+    gridDiv.addEventListener('touchmove', throttle(function(e) {
       const touch = e.touches[0];
       const target = document.elementFromPoint(touch.clientX, touch.clientY);
       if (target && target.classList.contains('cell') && target !== lastTouchCell) {
@@ -929,7 +968,7 @@
         handlePointerEnter({ target });
         e.preventDefault();
       }
-    }, { passive: false });
+    }, 16), { passive: false });
 
     gridDiv.addEventListener('touchend', function(e) {
       lastTouchCell = null;
